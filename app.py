@@ -1,36 +1,33 @@
 import streamlit as st
 import os
-import re
 from google import genai
 from google.genai import types
 from streamlit_pdf_viewer import pdf_viewer
 
-# --- 1. ENHANCED PLAYBOOK ---
-# I added a instruction at the bottom to force the AI to cite page numbers
+# --- 1. UPDATED PLAYBOOK WITH INLINE LINK INSTRUCTION ---
 SYSTEM_PROMPT = """
 Disclosure Review Playbook
-(Include all your previous instructions here...)
+(Include your full playbook here...)
 
 --- CITATION RULE ---
-For every finding you identify, you MUST include the page number in brackets at the end of the sentence, 
-e.g., "The roof is 15 years old [Page 4]". 
-Only cite the page number where the information was actually found in the PDF.
+For every finding you identify, you MUST include the page number as a hyperlink at the end of the sentence.
+Use exactly this format: [[Page X]](/?page=X)
+Example: "The roof is made of concrete tile [Page 8](/?page=8)."
+Only cite the page number where the information was actually found.
 """
 
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="TurboHome Auditor", page_icon="🏠", layout="wide")
 
-# --- 3. SESSION STATE ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "current_page" not in st.session_state:
-    st.session_state.current_page = 1  # Default to page 1
+# --- 3. SYNC PAGE STATE WITH URL ---
+# Check if the URL has a ?page=X parameter and update the state
+query_params = st.query_params
+if "page" in query_params:
+    st.session_state.current_page = int(query_params["page"])
+elif "current_page" not in st.session_state:
+    st.session_state.current_page = 1
 
-# --- 4. API SETUP ---
-api_key = st.secrets.get("GOOGLE_API_KEY")
-client = genai.Client(api_key=api_key)
-
-# --- 5. UI ---
+# --- 4. UI ---
 st.title("🏠 TurboHome Interactive Auditor")
 uploaded_file = st.file_uploader("Upload Disclosure Package (PDF)", type=['pdf'])
 
@@ -39,39 +36,29 @@ if uploaded_file:
     
     col_pdf, col_chat = st.columns([1.2, 1], gap="large")
 
-    # LEFT SIDE: PDF VIEWER WITH STATEFUL PAGE JUMPING
+    # LEFT SIDE: PDF VIEWER (Listens to st.session_state.current_page)
     with col_pdf:
-        st.subheader(f"📄 Disclosure Document (Viewing Page {st.session_state.current_page})")
-        
-        # We pass the current_page from session_state here
+        st.subheader(f"📄 Disclosure Document")
+        # Ensure we use the current page from our state
         pdf_viewer(
             input=pdf_bytes, 
-            height=800, 
-            pages_to_render=[st.session_state.current_page] # This focuses the viewer
+            height=850, 
+            pages_to_render=[st.session_state.current_page] 
         )
 
-    # RIGHT SIDE: CHAT & CLICKABLE LINKS
+    # RIGHT SIDE: CHAT WITH INLINE LINKS
     with col_chat:
         st.subheader("🤖 TurboHome Auditor")
         
-        chat_placeholder = st.container(height=600)
+        chat_placeholder = st.container(height=650)
         
         with chat_placeholder:
-            for i, message in enumerate(st.session_state.messages):
+            if "messages" not in st.session_state:
+                st.session_state.messages = []
+            
+            for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
-                    # LOGIC: Find [Page X] in the text and turn it into a button
-                    content = message["content"]
-                    pages_found = re.findall(r"\[Page (\d+)\]", content)
-                    
-                    st.markdown(content)
-                    
-                    # Create small buttons for each page found in this specific message
-                    if pages_found:
-                        cols = st.columns(len(pages_found))
-                        for idx, p in enumerate(pages_found):
-                            if cols[idx].button(f"Go to Page {p}", key=f"btn_{i}_{p}"):
-                                st.session_state.current_page = int(p)
-                                st.rerun() # Refresh to update the PDF viewer
+                    st.markdown(message["content"])
 
         if prompt := st.chat_input("Ask about the disclosures..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
@@ -81,7 +68,10 @@ if uploaded_file:
 
             with chat_placeholder:
                 with st.chat_message("assistant"):
-                    with st.spinner("Analyzing..."):
+                    try:
+                        api_key = st.secrets["GOOGLE_API_KEY"]
+                        client = genai.Client(api_key=api_key)
+                        
                         response = client.models.generate_content(
                             model="gemini-3-flash-preview",
                             config=types.GenerateContentConfig(
@@ -94,6 +84,15 @@ if uploaded_file:
                                   for m in st.session_state.messages]
                             ]
                         )
+                        
                         st.markdown(response.text)
                         st.session_state.messages.append({"role": "assistant", "content": response.text})
-                        st.rerun() # Ensure buttons appear immediately
+                        st.rerun() # Refresh to ensure the links are active
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
+# --- 5. LOGIC TO DETECT LINK CLICKS ---
+# This forces the app to acknowledge the query parameter change from the link
+if "page" in query_params and int(query_params["page"]) != st.session_state.current_page:
+    st.session_state.current_page = int(query_params["page"])
+    st.rerun()
