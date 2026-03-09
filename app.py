@@ -17,10 +17,9 @@ Example: "The roof is 15 years old :page[18]."
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="TurboHome Auditor", page_icon="🏠", layout="wide")
 
-# CSS to clean up the inline link-buttons and chat spacing
+# CSS for inline buttons
 st.markdown("""
     <style>
-    /* Remove standard button styling for page links */
     div.stButton > button {
         border: none !important;
         padding: 0px 2px !important;
@@ -35,14 +34,7 @@ st.markdown("""
     }
     div.stButton > button:hover {
         color: #0056b3 !important;
-        background-color: transparent !important;
-    }
-    /* Fixed height for the PDF container with internal scrolling */
-    .pdf-viewer-container {
-        height: 85vh;
-        overflow-y: auto;
-        border: 1px solid #ddd;
-        border-radius: 8px;
+        background-color: transparent;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -68,17 +60,15 @@ if uploaded_file:
 
     # --- LEFT SIDE: CONTINUOUS PDF VIEWER ---
     with col_pdf:
-        st.subheader("📄 Continuous Disclosure Document")
-        # Continuous scroll: Remove 'pages_to_render' to show all pages
-        # Use 'page_number' as a stateful controller for jumping
+        st.subheader("📄 Disclosure Document")
+        # FIXED: Changed 'page_number' to 'page_value' 
         pdf_viewer(
             input=pdf_bytes,
             height=850,
-            page_number=st.session_state.jump_to_page,
-            annotation_outline_size=2 # Optional: highlights areas if needed
+            page_value=st.session_state.jump_to_page
         )
 
-    # --- RIGHT SIDE: CHAT WITH INLINE JUMP-LINKS ---
+    # --- RIGHT SIDE: CHAT ---
     with col_chat:
         st.subheader("🤖 TurboHome Auditor")
         chat_container = st.container(height=650)
@@ -88,28 +78,27 @@ if uploaded_file:
                 with st.chat_message(msg["role"]):
                     parts = re.split(r'(:page\[\d+\])', msg["content"])
                     
-                    # Layout logic: We use st.write for text and st.button for links
-                    # To keep it "inline", we'll render segments sequentially
                     for p_idx, part in enumerate(parts):
                         match = re.match(r':page\[(\d+)\]', part)
                         if match:
                             page_num = int(match.group(1))
-                            if st.button(f"Page {page_num}", key=f"link_{msg_idx}_{p_idx}_{page_num}"):
+                            # UNIQUE KEY: Combining message index, part index, and role
+                            btn_key = f"jump_{msg_idx}_{p_idx}_{page_num}_{msg['role']}"
+                            if st.button(f"Page {page_num}", key=btn_key):
                                 st.session_state.jump_to_page = page_num
                                 st.rerun()
                         else:
-                            # Using st.markdown for text allows for bolding/headers
-                            st.markdown(part, unsafe_allow_html=True)
+                            st.markdown(part)
 
-        if prompt := st.chat_input("Ask a question about the disclosures..."):
+        if prompt := st.chat_input("Ask about the disclosures..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.rerun()
 
-    # --- AI ANALYSIS LOGIC ---
+    # --- AI LOGIC ---
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         with col_chat:
             with st.chat_message("assistant"):
-                with st.spinner("Analyzing document..."):
+                with st.spinner("Analyzing..."):
                     try:
                         response = client.models.generate_content(
                             model="gemini-3-flash-preview",
@@ -126,4 +115,4 @@ if uploaded_file:
                         st.session_state.messages.append({"role": "assistant", "content": response.text})
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Audit Error: {e}")
+                        st.error(f"Error: {e}")
