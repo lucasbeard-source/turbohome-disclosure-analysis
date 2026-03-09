@@ -17,10 +17,10 @@ Example: "The roof is 15 years old :page[18]."
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="TurboHome Auditor", page_icon="🏠", layout="wide")
 
-# This CSS strips the button styling to make it look like a blue text link
+# CSS for inline blue links and suggestion bubbles
 st.markdown("""
     <style>
-    /* Style buttons to look like inline blue links */
+    /* Inline Page Links */
     div.stButton > button {
         border: none !important;
         padding: 0px 1px !important;
@@ -36,7 +36,25 @@ st.markdown("""
     div.stButton > button:hover {
         color: #0056b3 !important;
         text-decoration: none !important;
-        background-color: transparent !important;
+    }
+    /* Suggestion Bubbles */
+    .suggestion-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 15px;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+    }
+    div[data-testid="column"] .stButton > button[key^="sugg_"] {
+        background-color: #f0f2f6 !important;
+        color: #31333F !important;
+        border: 1px solid #d1d5db !important;
+        text-decoration: none !important;
+        border-radius: 20px !important;
+        padding: 5px 15px !important;
+        font-size: 0.85rem !important;
+        display: block !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -46,6 +64,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "target_page" not in st.session_state:
     st.session_state.target_page = None 
+if "suggestions" not in st.session_state:
+    st.session_state.suggestions = ["Summarize the TDS report", "Find any structural red flags", "Check the roof condition"]
 
 # --- 4. API SETUP ---
 api_key = st.secrets.get("GOOGLE_API_KEY")
@@ -59,12 +79,8 @@ if uploaded_file:
     pdf_bytes = uploaded_file.read()
     col_pdf, col_chat = st.columns([1.3, 1], gap="large")
 
-    # LEFT SIDE: PDF VIEWER
     with col_pdf:
         st.subheader("📄 Disclosure Document")
-        
-        # If a target page is selected via a link click, we jump to it.
-        # Otherwise, we show the full continuous document.
         if st.session_state.target_page:
             st.info(f"Focusing on Page {st.session_state.target_page}")
             pdf_viewer(input=pdf_bytes, height=850, pages_to_render=[st.session_state.target_page])
@@ -74,31 +90,33 @@ if uploaded_file:
         else:
             pdf_viewer(input=pdf_bytes, height=850)
 
-    # RIGHT SIDE: CHAT WITH INLINE BUTTON-LINKS
     with col_chat:
         st.subheader("🤖 TurboHome Auditor")
-        chat_container = st.container(height=650)
+        chat_container = st.container(height=600)
         
         with chat_container:
             for m_idx, msg in enumerate(st.session_state.messages):
                 with st.chat_message(msg["role"]):
-                    # Split the message into text chunks and :page[X] tags
                     parts = re.split(r'(:page\[\d+\])', msg["content"])
-                    
-                    # We use a trick: st.write(..., unsafe_allow_html=True) 
-                    # can sometimes break layout, so we render parts one by one.
                     for p_idx, part in enumerate(parts):
                         match = re.match(r':page\[(\d+)\]', part)
                         if match:
                             page_num = int(match.group(1))
-                            # This button triggers the Python state change (No URL/New Tab)
                             if st.button(f"Page {page_num}", key=f"lk_{m_idx}_{p_idx}"):
                                 st.session_state.target_page = page_num
                                 st.rerun()
                         else:
-                            # Render standard text/markdown around the links
                             if part.strip():
                                 st.markdown(part)
+
+        # SUGGESTION BUBBLES
+        st.write("---")
+        st.caption("Suggested next steps:")
+        s_cols = st.columns(3)
+        for idx, suggestion in enumerate(st.session_state.suggestions):
+            if s_cols[idx].button(suggestion, key=f"sugg_{idx}"):
+                st.session_state.messages.append({"role": "user", "content": suggestion})
+                st.rerun()
 
         if prompt := st.chat_input("Ask a question..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
@@ -110,6 +128,7 @@ if uploaded_file:
             with st.chat_message("assistant"):
                 with st.spinner("Auditing..."):
                     try:
+                        # 1. Generate the main analysis
                         response = client.models.generate_content(
                             model="gemini-3-flash-preview",
                             config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, temperature=0.0),
@@ -120,6 +139,14 @@ if uploaded_file:
                             ]
                         )
                         st.session_state.messages.append({"role": "assistant", "content": response.text})
+
+                        # 2. Generate 3 follow-up suggestions based on the context
+                        sugg_response = client.models.generate_content(
+                            model="gemini-3-flash-preview",
+                            contents=[f"Based on this analysis: '{response.text}', suggest 3 short, 3-5 word follow-up questions for a homebuyer. Output only the 3 questions separated by pipe | symbol."]
+                        )
+                        st.session_state.suggestions = sugg_response.text.strip().split('|')[:3]
+                        
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error: {e}")
