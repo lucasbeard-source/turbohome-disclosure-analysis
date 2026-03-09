@@ -33,329 +33,274 @@ st.set_page_config(
 # =========================
 st.markdown(
     """
-<style>
-:root {
-    --th-blue: #2f5bff;
-    --th-blue-dark: #2147db;
-    --th-navy: #13203b;
-    --th-text: #41516b;
-    --th-muted: #74829a;
-    --th-line: #dfe7f4;
-    --th-bg: #f5f8ff;
-    --th-card: #ffffff;
-    --th-green: #13b981;
-    --th-shadow: 0 18px 45px rgba(23, 37, 84, 0.08);
-    --th-radius-xl: 28px;
-    --th-radius-lg: 22px;
-    --th-radius-md: 16px;
-}
-
-html, body, [class*="css"] {
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.stApp {
-    background:
-        radial-gradient(circle at top left, rgba(47, 91, 255, 0.10), transparent 28%),
-        linear-gradient(180deg, #f8fbff 0%, #f3f7ff 100%);
-}
-
-.block-container {
-    max-width: 1500px;
-    padding-top: 1.6rem;
-    padding-bottom: 2rem;
-}
-
-/* Hide Streamlit chrome */
-#MainMenu, footer, header {visibility: hidden;}
-
-/* Hero */
-.th-hero {
-    background:
-        linear-gradient(135deg, rgba(47,91,255,0.10) 0%, rgba(255,255,255,0.95) 52%, rgba(245,248,255,1) 100%);
-    border: 1px solid rgba(47, 91, 255, 0.12);
-    border-radius: 30px;
-    padding: 28px 28px 24px 28px;
-    box-shadow: var(--th-shadow);
-    margin-bottom: 18px;
-}
-
-.th-eyebrow {
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--th-blue-dark);
-    margin-bottom: 10px;
-}
-
-.th-title {
-    font-size: 28px;
-    line-height: 1.08;
-    font-weight: 850;
-    letter-spacing: -0.03em;
-    color: var(--th-navy);
-    margin-bottom: 10px;
-}
-
-.th-copy {
-    max-width: 760px;
-    color: var(--th-text);
-    font-size: 18px;
-    line-height: 1.6;
-    margin-bottom: 18px;
-}
-
-.th-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 18px;
-}
-
-.th-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255,255,255,0.9);
-    color: var(--th-navy);
-    border: 1px solid rgba(47, 91, 255, 0.14);
-    border-radius: 999px;
-    padding: 10px 14px;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.th-badge-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: var(--th-green);
-    display: inline-block;
-}
-
-.th-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.th-stat {
-    background: rgba(255,255,255,0.82);
-    border: 1px solid var(--th-line);
-    border-radius: 20px;
-    padding: 16px 18px;
-}
-
-.th-stat-label {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 800;
-    color: var(--th-muted);
-    margin-bottom: 6px;
-}
-
-.th-stat-value {
-    color: var(--th-navy);
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-}
-
-/* Shell / cards */
-.th-shell {
-    background: rgba(255,255,255,0.72);
-    border: 1px solid rgba(223,231,244,0.9);
-    border-radius: var(--th-radius-xl);
-    padding: 14px;
-    box-shadow: var(--th-shadow);
-}
-
-.th-panel {
-    background: var(--th-card);
-    border: 1px solid var(--th-line);
-    border-radius: var(--th-radius-lg);
-    padding: 16px;
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
-}
-
-.th-panel-header {
-    display: flex;
-    align-items: start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 10px;
-}
-
-.th-panel-title {
-    color: var(--th-navy);
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-}
-
-.th-panel-subtitle {
-    color: var(--th-muted);
-    font-size: 14px;
-    line-height: 1.5;
-    margin-top: 3px;
-}
-
-.th-doc-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-    border-radius: 999px;
-    padding: 9px 12px;
-    background: rgba(47, 91, 255, 0.08);
-    border: 1px solid rgba(47, 91, 255, 0.14);
-    color: var(--th-blue-dark);
-    font-size: 13px;
-    font-weight: 800;
-}
-
-.th-info {
-    background: rgba(47, 91, 255, 0.06);
-    border: 1px solid rgba(47, 91, 255, 0.12);
-    color: var(--th-blue-dark);
-    border-radius: 16px;
-    padding: 12px 14px;
-    margin-bottom: 12px;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-/* Uploader */
-.stFileUploader {
-    background: rgba(255,255,255,0.78);
-    border: 1px dashed rgba(47,91,255,0.35);
-    border-radius: 22px;
-    padding: 6px;
-}
-
-/* Buttons */
-.stButton > button {
-    border-radius: 999px !important;
-    border: 1px solid transparent !important;
-    background: linear-gradient(180deg, var(--th-blue), var(--th-blue-dark)) !important;
-    color: white !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.01em;
-    padding: 0.60rem 1rem !important;
-    box-shadow: 0 10px 24px rgba(47,91,255,0.18) !important;
-}
-.stButton > button:hover {
-    transform: translateY(-1px);
-}
-
-/* Chat */
-[data-testid="stChatMessage"] {
-    background: transparent !important;
-}
-[data-testid="stChatMessageContent"] {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-}
-.th-chat-wrap {
-    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-    border: 1px solid var(--th-line);
-    border-radius: var(--th-radius-lg);
-    padding: 10px;
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
-}
-
-.th-message {
-    border: 1px solid var(--th-line);
-    background: #ffffff;
-    border-radius: 18px;
-    padding: 14px 16px;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
-}
-
-.th-message-user {
-    background: linear-gradient(180deg, #f7f9ff 0%, #ffffff 100%);
-}
-
-.th-message-assistant {
-    background: #ffffff;
-}
-
-.th-message-label {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 800;
-    color: var(--th-muted);
-    margin-bottom: 8px;
-}
-
-.msg-rich {
-    color: var(--th-text);
-    font-size: 15.5px;
-    line-height: 1.72;
-    word-wrap: break-word;
-}
-.msg-rich p {
-    margin: 0 0 0.8rem 0;
-}
-.msg-rich p:last-child {
-    margin-bottom: 0;
-}
-
-/* Next-level inline citation pills */
-.page-cite {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    vertical-align: baseline;
-    margin: 0 2px;
-    padding: 2px 9px;
-    border-radius: 999px;
-    border: 1px solid rgba(47, 91, 255, 0.16);
-    background: rgba(47, 91, 255, 0.08);
-    color: var(--th-blue-dark);
-    text-decoration: none !important;
-    font-size: 0.92em;
-    font-weight: 800;
-    white-space: nowrap;
-    transition: all 0.16s ease;
-}
-.page-cite:hover {
-    background: rgba(47, 91, 255, 0.14);
-    border-color: rgba(47, 91, 255, 0.28);
-    color: var(--th-blue-dark);
-    transform: translateY(-1px);
-}
-.page-cite-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-    background: var(--th-blue);
-    display: inline-block;
-}
-
-/* Chat input */
-[data-testid="stChatInput"] {
-    border-radius: 18px;
-}
-
-/* Responsive */
-@media (max-width: 1100px) {
-    .th-stats {
-        grid-template-columns: 1fr;
+    <style>
+    :root {
+        --th-blue: #2f5bff;
+        --th-blue-dark: #2147db;
+        --th-navy: #13203b;
+        --th-text: #41516b;
+        --th-muted: #74829a;
+        --th-line: #dfe7f4;
+        --th-bg: #f5f8ff;
+        --th-card: #ffffff;
+        --th-green: #13b981;
     }
-    .th-title {
-        font-size: 24px;
+
+    .stApp {
+        background:
+            radial-gradient(circle at top left, rgba(47, 91, 255, 0.10), transparent 28%),
+            linear-gradient(180deg, #f8fbff 0%, #f3f7ff 100%);
     }
-    .th-copy {
-        font-size: 16px;
+
+    .block-container {
+        max-width: 1500px;
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
     }
-}
-</style>
-""",
+
+    #MainMenu, footer, header {
+        visibility: hidden;
+    }
+
+    h1, h2, h3 {
+        color: var(--th-navy);
+        letter-spacing: -0.02em;
+    }
+
+    .th-hero-card {
+        background:
+            linear-gradient(135deg, rgba(47,91,255,0.10) 0%, rgba(255,255,255,0.95) 52%, rgba(245,248,255,1) 100%);
+        border: 1px solid rgba(47, 91, 255, 0.12);
+        border-radius: 28px;
+        padding: 1.4rem 1.5rem 1.2rem 1.5rem;
+        box-shadow: 0 18px 45px rgba(23, 37, 84, 0.08);
+        margin-bottom: 1rem;
+    }
+
+    .th-eyebrow {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--th-blue-dark);
+        margin-bottom: 0.35rem;
+    }
+
+    .th-subcopy {
+        color: var(--th-text);
+        font-size: 1.05rem;
+        line-height: 1.6;
+        margin-top: -0.2rem;
+        margin-bottom: 1rem;
+        max-width: 760px;
+    }
+
+    .th-pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin: 0.6rem 0 1rem 0;
+    }
+
+    .th-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        background: rgba(255,255,255,0.92);
+        color: var(--th-navy);
+        border: 1px solid rgba(47, 91, 255, 0.14);
+        border-radius: 999px;
+        padding: 0.52rem 0.8rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+    }
+
+    .th-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--th-green);
+        display: inline-block;
+    }
+
+    .th-shell {
+        background: rgba(255,255,255,0.72);
+        border: 1px solid rgba(223,231,244,0.9);
+        border-radius: 24px;
+        padding: 14px;
+        box-shadow: 0 18px 45px rgba(23, 37, 84, 0.08);
+    }
+
+    .th-panel {
+        background: var(--th-card);
+        border: 1px solid var(--th-line);
+        border-radius: 20px;
+        padding: 16px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+    }
+
+    .th-panel-title {
+        color: var(--th-navy);
+        font-size: 1.05rem;
+        font-weight: 800;
+        margin-bottom: 0.2rem;
+    }
+
+    .th-panel-subtitle {
+        color: var(--th-muted);
+        font-size: 0.92rem;
+        line-height: 1.5;
+    }
+
+    .th-doc-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 9px 12px;
+        background: rgba(47, 91, 255, 0.08);
+        border: 1px solid rgba(47, 91, 255, 0.14);
+        color: var(--th-blue-dark);
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .th-info {
+        background: rgba(47, 91, 255, 0.06);
+        border: 1px solid rgba(47, 91, 255, 0.12);
+        color: var(--th-blue-dark);
+        border-radius: 16px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+    .stFileUploader {
+        background: rgba(255,255,255,0.82);
+        border: 1px dashed rgba(47,91,255,0.35);
+        border-radius: 22px;
+        padding: 6px;
+    }
+
+    .stButton > button {
+        border-radius: 999px !important;
+        border: 1px solid transparent !important;
+        background: linear-gradient(180deg, var(--th-blue), var(--th-blue-dark)) !important;
+        color: white !important;
+        font-weight: 800 !important;
+        padding: 0.60rem 1rem !important;
+        box-shadow: 0 10px 24px rgba(47,91,255,0.18) !important;
+    }
+
+    [data-testid="stChatMessage"] {
+        background: transparent !important;
+    }
+
+    [data-testid="stChatMessageContent"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+
+    .th-chat-wrap {
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        border: 1px solid var(--th-line);
+        border-radius: 20px;
+        padding: 10px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+    }
+
+    .th-message {
+        border: 1px solid var(--th-line);
+        background: #ffffff;
+        border-radius: 18px;
+        padding: 14px 16px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
+    }
+
+    .th-message-user {
+        background: linear-gradient(180deg, #f7f9ff 0%, #ffffff 100%);
+    }
+
+    .th-message-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 800;
+        color: var(--th-muted);
+        margin-bottom: 8px;
+    }
+
+    .msg-rich {
+        color: var(--th-text);
+        font-size: 15.5px;
+        line-height: 1.72;
+        word-wrap: break-word;
+    }
+
+    .msg-rich p {
+        margin: 0 0 0.8rem 0;
+    }
+
+    .msg-rich p:last-child {
+        margin-bottom: 0;
+    }
+
+    .page-cite {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        vertical-align: baseline;
+        margin: 0 2px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(47, 91, 255, 0.16);
+        background: rgba(47, 91, 255, 0.08);
+        color: var(--th-blue-dark) !important;
+        text-decoration: none !important;
+        font-size: 0.92em;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .page-cite:hover {
+        background: rgba(47, 91, 255, 0.14);
+        border-color: rgba(47, 91, 255, 0.28);
+    }
+
+    .page-cite-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--th-blue);
+        display: inline-block;
+    }
+
+    .th-stat-card {
+        background: rgba(255,255,255,0.92);
+        border: 1px solid var(--th-line);
+        border-radius: 18px;
+        padding: 0.95rem 1rem;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    }
+
+    .th-stat-label {
+        font-size: 0.78rem;
+        color: var(--th-muted);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.25rem;
+    }
+
+    .th-stat-value {
+        color: var(--th-navy);
+        font-size: 1.05rem;
+        font-weight: 800;
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
@@ -374,9 +319,8 @@ if "pdf_bytes" not in st.session_state:
 if "pdf_name" not in st.session_state:
     st.session_state.pdf_name = None
 
-# Same-window navigation using query params
-query_params = st.query_params
-page_from_url = query_params.get("page", None)
+# Read same-window page navigation from query params
+page_from_url = st.query_params.get("page", None)
 if page_from_url is not None:
     try:
         st.session_state.target_page = int(page_from_url)
@@ -407,21 +351,15 @@ def estimate_page_count(pdf_bytes: bytes) -> str:
 
 def render_message_with_inline_page_links(content: str):
     """
-    Replaces :page[X] with same-window clickable citation pills.
+    Converts :page[X] to same-window links.
+    target="_self" is the key piece that avoids opening a new tab/window.
     """
     safe = html.escape(content)
 
     def replace_page_tag(match):
         page_num = match.group(1)
-        js = (
-            "window.parent.history.replaceState({}, '', '?page="
-            + page_num
-            + "'); window.parent.location.search='?page="
-            + page_num
-            + "'; return false;"
-        )
         return (
-            f'<a class="page-cite" href="?page={page_num}" onclick="{js}">'
+            f'<a class="page-cite" href="?page={page_num}" target="_self">'
             f'<span class="page-cite-dot"></span>p.{page_num}</a>'
         )
 
@@ -437,7 +375,7 @@ def render_message_with_inline_page_links(content: str):
 
 def render_chat_message(role: str, content: str):
     label = "You" if role == "user" else "TurboHome Auditor"
-    role_class = "th-message-user" if role == "user" else "th-message-assistant"
+    role_class = "th-message-user" if role == "user" else ""
     st.markdown(
         f"""
         <div class="th-message {role_class}">
@@ -448,7 +386,6 @@ def render_chat_message(role: str, content: str):
     render_message_with_inline_page_links(content)
     st.markdown("</div>", unsafe_allow_html=True)
 
-
 # =========================
 # 6. API SETUP
 # =========================
@@ -458,40 +395,58 @@ client = genai.Client(api_key=api_key) if api_key else None
 # =========================
 # 7. HERO
 # =========================
+st.markdown('<div class="th-hero-card">', unsafe_allow_html=True)
+st.markdown('<div class="th-eyebrow">TurboHome Disclosure Intelligence</div>', unsafe_allow_html=True)
+st.title("Review faster. Catch more. Jump straight to the page.")
+st.markdown(
+    '<div class="th-subcopy">Upload a disclosure package, ask a question, and get grounded findings with inline page citations that focus the exact page in the PDF viewer.</div>',
+    unsafe_allow_html=True,
+)
+
 st.markdown(
     """
-<div class="th-hero">
-    <div class="th-eyebrow">TurboHome Disclosure Intelligence</div>
-    <div class="th-title">Review faster. Catch more. Jump straight to the page.</div>
-    <div class="th-copy">
-        Upload a disclosure package, ask a question, and get grounded findings with inline page citations
-        that take you directly to the exact page in the PDF viewer.
+    <div class="th-pill-row">
+        <span class="th-pill"><span class="th-dot"></span>Inline page citations</span>
+        <span class="th-pill"><span class="th-dot"></span>Disclosure-focused analysis</span>
+        <span class="th-pill"><span class="th-dot"></span>Fast PDF navigation</span>
     </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-    <div class="th-badges">
-        <span class="th-badge"><span class="th-badge-dot"></span>Inline page citations</span>
-        <span class="th-badge"><span class="th-badge-dot"></span>Disclosure-focused analysis</span>
-        <span class="th-badge"><span class="th-badge-dot"></span>Fast PDF navigation</span>
-    </div>
-
-    <div class="th-stats">
-        <div class="th-stat">
+s1, s2, s3 = st.columns(3)
+with s1:
+    st.markdown(
+        """
+        <div class="th-stat-card">
             <div class="th-stat-label">Workflow</div>
             <div class="th-stat-value">Upload → Ask → Audit</div>
         </div>
-        <div class="th-stat">
+        """,
+        unsafe_allow_html=True,
+    )
+with s2:
+    st.markdown(
+        """
+        <div class="th-stat-card">
             <div class="th-stat-label">Output</div>
             <div class="th-stat-value">Findings with :page[X]</div>
         </div>
-        <div class="th-stat">
+        """,
+        unsafe_allow_html=True,
+    )
+with s3:
+    st.markdown(
+        """
+        <div class="th-stat-card">
             <div class="th-stat-label">Viewer</div>
             <div class="th-stat-value">Focus any cited page instantly</div>
         </div>
-    </div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================
 # 8. FILE UPLOAD
@@ -499,7 +454,7 @@ st.markdown(
 uploaded_file = st.file_uploader(
     "Upload Disclosure Package (PDF)",
     type=["pdf"],
-    help="Upload seller disclosures, inspection reports, HOA docs, or any related packet.",
+    help="Upload seller disclosures, inspection reports, HOA docs, or related packet.",
 )
 
 if uploaded_file is not None:
@@ -514,68 +469,50 @@ pdf_bytes = st.session_state.pdf_bytes
 if pdf_bytes:
     col_pdf, col_chat = st.columns([1.25, 1], gap="large")
 
-    # LEFT: PDF VIEWER
     with col_pdf:
-        st.markdown('<div class="th-shell">', unsafe_allow_html=True)
-        st.markdown(
-            f"""
-            <div class="th-panel">
-                <div class="th-panel-header">
-                    <div>
-                        <div class="th-panel-title">📄 Disclosure Document</div>
-                        <div class="th-panel-subtitle">
-                            Review the full package or jump directly from any cited finding.
-                        </div>
-                    </div>
-                    <div class="th-doc-meta">
-                        {html.escape(st.session_state.pdf_name or "Disclosure Package")} · {estimate_page_count(pdf_bytes)}
-                    </div>
-                </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if st.session_state.target_page:
+        st.markdown('<div class="th-shell"><div class="th-panel">', unsafe_allow_html=True)
+        header_left, header_right = st.columns([1, 0.36])
+        with header_left:
+            st.markdown('<div class="th-panel-title">📄 Disclosure Document</div>', unsafe_allow_html=True)
             st.markdown(
-                f"""
-                <div class="th-info">
-                    Focused on page {st.session_state.target_page}. Click “Back to full document” to return to continuous view.
-                </div>
-                """,
+                '<div class="th-panel-subtitle">Review the full package or jump directly from any cited finding.</div>',
+                unsafe_allow_html=True,
+            )
+        with header_right:
+            st.markdown(
+                f'<div class="th-doc-meta">{html.escape(st.session_state.pdf_name or "Disclosure Package")} · {estimate_page_count(pdf_bytes)}</div>',
                 unsafe_allow_html=True,
             )
 
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        if st.session_state.target_page:
+            st.markdown(
+                f'<div class="th-info">Focused on page {st.session_state.target_page}. Click “Back to full document” to return to the continuous view.</div>',
+                unsafe_allow_html=True,
+            )
             pdf_viewer(
                 input=pdf_bytes,
                 height=860,
                 pages_to_render=[st.session_state.target_page],
             )
-
-            if st.button("Back to full document", key="back_to_full_document"):
+            if st.button("Back to full document", key="back_to_full_doc"):
                 st.session_state.target_page = None
                 clear_page_param()
                 st.rerun()
         else:
-            pdf_viewer(
-                input=pdf_bytes,
-                height=860,
-            )
+            pdf_viewer(input=pdf_bytes, height=860)
 
         st.markdown("</div></div>", unsafe_allow_html=True)
 
-    # RIGHT: CHAT
     with col_chat:
         st.markdown(
             """
             <div class="th-shell">
                 <div class="th-chat-wrap">
-                    <div class="th-panel-header" style="margin-bottom: 4px;">
-                        <div>
-                            <div class="th-panel-title">🤖 TurboHome Auditor</div>
-                            <div class="th-panel-subtitle">
-                                Ask about risk, repairs, disclosures, permits, HOA, negotiation leverage, or missing items.
-                            </div>
-                        </div>
+                    <div class="th-panel-title">🤖 TurboHome Auditor</div>
+                    <div class="th-panel-subtitle">
+                        Ask about risk, repairs, disclosures, permits, HOA, missing items, or negotiation leverage.
                     </div>
                 </div>
             </div>
@@ -586,7 +523,7 @@ if pdf_bytes:
         chat_container = st.container(height=640)
 
         with chat_container:
-            for msg in st.session_state.messages:
+            for i, msg in enumerate(st.session_state.messages):
                 with st.chat_message(msg["role"]):
                     render_chat_message(msg["role"], msg["content"])
 
@@ -595,12 +532,11 @@ if pdf_bytes:
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.rerun()
 
-    # AI RESPONSE
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         with col_chat:
             with st.chat_message("assistant"):
                 st.markdown(
-                    '<div class="th-message th-message-assistant"><div class="th-message-label">TurboHome Auditor</div>',
+                    '<div class="th-message"><div class="th-message-label">TurboHome Auditor</div>',
                     unsafe_allow_html=True,
                 )
                 with st.spinner("Auditing disclosure package..."):
@@ -642,7 +578,6 @@ if pdf_bytes:
                         except Exception as e:
                             st.error(f"Error: {e}")
                             st.markdown("</div>", unsafe_allow_html=True)
-
 else:
     st.markdown(
         """
