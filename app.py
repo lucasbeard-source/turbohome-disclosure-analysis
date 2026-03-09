@@ -5,8 +5,10 @@ from google.genai import types
 from streamlit_pdf_viewer import pdf_viewer
 
 # --- 1. THE PLAYBOOK ---
+# (Keep your full Disclosure Review Playbook text here)
 SYSTEM_PROMPT = """
-(Paste your full Disclosure Review Playbook text here)
+Disclosure Review Playbook
+(Include your full playbook here...)
 
 --- CITATION RULE ---
 For every finding, you MUST include the page number using this exact tag: :page[X]
@@ -40,7 +42,7 @@ st.markdown("""
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "target_page" not in st.session_state:
-    st.session_state.target_page = None # Start with no specific jump
+    st.session_state.target_page = None 
 
 # --- 4. API SETUP ---
 api_key = st.secrets.get("GOOGLE_API_KEY")
@@ -57,20 +59,18 @@ if uploaded_file:
     with col_pdf:
         st.subheader("📄 Disclosure Document")
         
-        # If we have a target_page, we render just that page to "jump" to it.
-        # Otherwise, we render all pages (continuous view).
-        render_list = [st.session_state.target_page] if st.session_state.target_page else None
-        
-        pdf_viewer(
-            input=pdf_bytes,
-            height=850,
-            pages_to_render=render_list
-        )
-        
+        # FIXED LOGIC: 
+        # If target_page is set, we pass it as a list.
+        # If not, we call the function WITHOUT the pages_to_render argument.
         if st.session_state.target_page:
-            if st.button("⬅️ Back to Continuous View"):
+            st.info(f"Viewing Page {st.session_state.target_page}")
+            pdf_viewer(input=pdf_bytes, height=850, pages_to_render=[st.session_state.target_page])
+            if st.button("⬅️ Back to Full Document"):
                 st.session_state.target_page = None
                 st.rerun()
+        else:
+            # This call provides the continuous "all pages" scroll
+            pdf_viewer(input=pdf_bytes, height=850)
 
     with col_chat:
         st.subheader("🤖 TurboHome Auditor")
@@ -84,7 +84,7 @@ if uploaded_file:
                         match = re.match(r':page\[(\d+)\]', part)
                         if match:
                             page_num = int(match.group(1))
-                            if st.button(f"Page {page_num}", key=f"btn_{m_idx}_{p_idx}"):
+                            if st.button(f"Page {page_num}", key=f"btn_{m_idx}_{p_idx}_{page_num}"):
                                 st.session_state.target_page = page_num
                                 st.rerun()
                         else:
@@ -98,7 +98,7 @@ if uploaded_file:
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         with col_chat:
             with st.chat_message("assistant"):
-                with st.spinner("Analyzing..."):
+                with st.spinner("Auditing..."):
                     try:
                         response = client.models.generate_content(
                             model="gemini-3-flash-preview",
