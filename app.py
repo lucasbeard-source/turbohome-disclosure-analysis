@@ -3,6 +3,7 @@ import re
 from google import genai
 from google.genai import types
 from streamlit_pdf_viewer import pdf_viewer
+import streamlit.components.v1 as components
 
 # --- 1. THE PLAYBOOK ---
 SYSTEM_PROMPT = """
@@ -10,38 +11,35 @@ Disclosure Review Playbook
 (Include your full playbook here...)
 
 --- CITATION RULE ---
-You MUST include page citations as inline Markdown links.
-Format: [Page X](/?jump=X)
-Example: "The foundation has cracks [Page 14](/?jump=14)."
+For every finding, you MUST include the page number using this exact format: <a href="javascript:void(0)" onclick="window.parent.postMessage({type: 'jump', page: X}, '*')">[Page X]</a>
+Example: "The roof is 15 years old <a href='javascript:void(0)' onclick='window.parent.postMessage({type: \"jump\", page: 18}, \"*\")'>[Page 18]</a>."
 """
 
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="TurboHome Auditor", page_icon="🏠", layout="wide")
 
-# CSS to make chat links pop and look professional
-st.markdown("""
-    <style>
-    .stChatMessage a {
-        color: #007bff !important;
-        text-decoration: underline !important;
-        font-weight: bold;
+# --- 3. JAVASCRIPT BRIDGE ---
+# This invisible component listens for the "jump" message from the chat links
+components.html("""
+<script>
+window.addEventListener('message', function(event) {
+    if (event.data.type === 'jump') {
+        const url = new URL(window.parent.location);
+        url.searchParams.set('page', event.data.page);
+        window.parent.history.pushState({}, '', url);
+        // Force Streamlit to notice the change by clicking a hidden refresh button
+        window.parent.document.querySelector('.stApp').click();
     }
-    .stChatMessage a:hover {
-        color: #0056b3 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+});
+</script>
+""", height=0)
 
-# --- 3. STATE & URL SYNC ---
+# --- 4. STATE SYNC ---
 params = st.query_params
-if "jump" in params:
-    st.session_state.target_page = int(params["jump"])
+if "page" in params:
+    st.session_state.target_page = int(params["page"])
 elif "target_page" not in st.session_state:
     st.session_state.target_page = None
-
-# --- 4. API SETUP ---
-api_key = st.secrets.get("GOOGLE_API_KEY")
-client = genai.Client(api_key=api_key)
 
 # --- 5. UI ---
 st.title("🏠 TurboHome Interactive Auditor")
@@ -51,28 +49,20 @@ if uploaded_file:
     pdf_bytes = uploaded_file.read()
     col_pdf, col_chat = st.columns([1.3, 1], gap="large")
 
-    # LEFT SIDE: PDF VIEWER
     with col_pdf:
         st.subheader("📄 Disclosure Document")
         
-        # BULLETPROOF LOGIC: 
-        # We split the function call so we never pass None to pages_to_render
+        # Logical check to prevent NoneType iteration error
         if st.session_state.target_page:
-            st.info(f"Focusing on Page {st.session_state.target_page}")
-            pdf_viewer(
-                input=pdf_bytes, 
-                height=850, 
-                pages_to_render=[st.session_state.target_page]
-            )
+            st.info(f"Viewing Page {st.session_state.target_page}")
+            pdf_viewer(input=pdf_bytes, height=850, pages_to_render=[st.session_state.target_page])
             if st.button("⬅️ Back to Full Document"):
-                st.query_params.clear() 
+                st.query_params.clear()
                 st.session_state.target_page = None
                 st.rerun()
         else:
-            # Renders all pages in a continuous scroll
             pdf_viewer(input=pdf_bytes, height=850)
 
-    # RIGHT SIDE: CHAT
     with col_chat:
         st.subheader("🤖 TurboHome Auditor")
         
@@ -81,14 +71,18 @@ if uploaded_file:
 
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+                # We use unsafe_allow_html=True to render our custom Javascript links
+                st.markdown(msg["content"], unsafe_allow_html=True)
 
-        if prompt := st.chat_input("Ask a question about the disclosures..."):
+        if prompt := st.chat_input("Ask about the disclosures..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             
             with st.chat_message("assistant"):
-                with st.spinner("Analyzing..."):
+                with st.spinner("Auditing..."):
                     try:
+                        api_key = st.secrets["GOOGLE_API_KEY"]
+                        client = genai.Client(api_key=api_key)
+                        
                         response = client.models.generate_content(
                             model="gemini-3-flash-preview",
                             config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, temperature=0.0),
