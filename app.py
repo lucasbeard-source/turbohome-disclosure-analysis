@@ -184,7 +184,7 @@ else: st.caption("Audit results will appear here.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 7. AI ENGINE
+# 7. AI ENGINE (Educational Suggestion Update)
 # =========================================================
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
     MODEL_NAME = "gemini-3-flash-preview"
@@ -194,14 +194,25 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             pdf_parts = [types.Part.from_bytes(data=b, mime_type="application/pdf") for b in st.session_state.pdf_library.values()]
             history = [types.Content(role="model" if m["role"] == "assistant" else "user", 
                        parts=[types.Part.from_text(text=m["content"])]) for m in st.session_state.messages]
+            
             res = client.models.generate_content(
                 model=MODEL_NAME, config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, temperature=0.0),
                 contents=pdf_parts + history
             )
             st.session_state.messages.append({"role": "assistant", "content": res.text})
-            # Suggestion shadow call
-            s_res = client.models.generate_content(model=MODEL_NAME, 
-                contents=[f"Based on: '{res.text}', suggest 3 short buyer follow-ups (under 7 words). Output text separated by |."])
+
+            # --- UPDATED EDUCATIONAL SHADOW CALL ---
+            educational_prompt = f"""
+            Based on these findings: '{res.text}', suggest 3 short educational follow-up questions.
+            RULES:
+            1. No real-world actions (e.g., DO NOT say 'Hire a pro' or 'Get a quote').
+            2. Focus ONLY on learning and conceptual risk (e.g., 'Learn about [X] hazards' or 'Explain [X] implications').
+            3. Must be under 7 words each.
+            4. Output ONLY text separated by | (e.g., Learn about [X] | Explain [Y] | Why is [Z] a risk).
+            """
+            
+            s_res = client.models.generate_content(model=MODEL_NAME, contents=[educational_prompt])
             st.session_state.suggestions = [s.strip() for s in s_res.text.split('|')][:3]
             st.rerun()
+            
         except Exception as e: st.error(f"Error: {e}")
