@@ -268,10 +268,25 @@ st.markdown("""
         line-height: 1.6;
     }
 
+    .findings-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .findings-toolbar-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 800;
+        color: #64748b;
+    }
+
     .findings-wrap {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
         padding-bottom: 10px;
     }
 
@@ -281,7 +296,7 @@ st.markdown("""
         letter-spacing: 0.04em;
         text-transform: uppercase;
         color: #64748b;
-        margin: 10px 0 4px 0;
+        margin: 4px 0 4px 0;
     }
 
     .finding-item {
@@ -290,6 +305,7 @@ st.markdown("""
         border-radius: 16px;
         padding: 12px 12px 10px 12px;
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        margin-bottom: 10px;
     }
 
     .finding-item.high {
@@ -352,6 +368,13 @@ st.markdown("""
         font-size: 0.92rem;
         line-height: 1.55;
     }
+
+    /* Make expander look cleaner in SaaS card */
+    .streamlit-expanderHeader {
+        font-weight: 700;
+        color: #0f172a;
+        border-radius: 12px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -366,6 +389,8 @@ if "suggestions" not in st.session_state:
         "Check unpermitted work",
         "Summarize NHD hazards"
     ]
+if "severity_filter" not in st.session_state:
+    st.session_state.severity_filter = ["high", "medium", "low"]
 
 # --- 5. API SETUP ---
 MODEL_NAME = "gemini-3-flash-preview"
@@ -396,7 +421,11 @@ DEFAULT_FINDINGS = {
 def infer_severity(section_name: str) -> str:
     if section_name == "Critical Risks":
         return "high"
-    if section_name in ["Repairs / Deferred Maintenance", "Permit / Compliance Issues", "Insurance / Hazard Concerns"]:
+    if section_name in [
+        "Repairs / Deferred Maintenance",
+        "Permit / Compliance Issues",
+        "Insurance / Hazard Concerns"
+    ]:
         return "medium"
     return "low"
 
@@ -424,7 +453,7 @@ def parse_findings(text: str):
         header_text = header_match.group(1).strip().lower() if header_match else None
 
         normalized = line.lower().strip(": ")
-        if header_text and header_text in SECTION_MAP:
+        if header_match and header_text in SECTION_MAP:
             current_section = SECTION_MAP[header_text]
             continue
         elif normalized in SECTION_MAP:
@@ -468,6 +497,16 @@ def latest_assistant_message():
         if msg["role"] == "assistant":
             return msg["content"]
     return None
+
+def filtered_findings(findings_dict, allowed_severities):
+    result = {}
+    for section_name, items in findings_dict.items():
+        sev = infer_severity(section_name)
+        if sev in allowed_severities:
+            result[section_name] = items
+        else:
+            result[section_name] = []
+    return result
 
 # --- 7. HEADER / HERO ---
 st.markdown("""
@@ -610,10 +649,25 @@ with col_workspace:
             </div>
         """, unsafe_allow_html=True)
 
+        st.markdown("""
+        <div class="findings-toolbar">
+            <div class="findings-toolbar-label">Filter by severity</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        selected_severities = st.multiselect(
+            label="Severity",
+            options=["high", "medium", "low"],
+            default=st.session_state.severity_filter,
+            key="severity_filter",
+            label_visibility="collapsed"
+        )
+
         latest_response = latest_assistant_message()
 
         if latest_response:
             findings = parse_findings(latest_response)
+            findings = filtered_findings(findings, selected_severities)
 
             st.markdown('<div class="findings-wrap">', unsafe_allow_html=True)
 
@@ -623,35 +677,36 @@ with col_workspace:
                     continue
 
                 any_items = True
-                st.markdown(
-                    f'<div class="finding-section-title">{section_name}</div>',
-                    unsafe_allow_html=True
-                )
-
                 sev = infer_severity(section_name)
+                default_open = True if sev == "high" else False
 
-                for idx, item in enumerate(items):
+                with st.expander(f"{section_name} ({len(items)})", expanded=default_open):
                     st.markdown(
-                        f'''
-                        <div class="finding-item {sev}">
-                            <div class="finding-top">
-                                <div class="finding-badge {sev}">{sev.upper()}</div>
-                            </div>
-                            <div class="finding-body">
-                        ''',
+                        f'<div class="finding-section-title">{section_name}</div>',
                         unsafe_allow_html=True
                     )
-                    render_text_with_page_buttons(
-                        item,
-                        prefix=f"finding_{section_name}_{idx}"
-                    )
-                    st.markdown("</div></div>", unsafe_allow_html=True)
+
+                    for idx, item in enumerate(items):
+                        st.markdown(
+                            f'''
+                            <div class="finding-item {sev}">
+                                <div class="finding-top">
+                                    <div class="finding-badge {sev}">{sev.upper()}</div>
+                                </div>
+                                <div class="finding-body">
+                            ''',
+                            unsafe_allow_html=True
+                        )
+                        render_text_with_page_buttons(
+                            item,
+                            prefix=f"finding_{section_name}_{idx}"
+                        )
+                        st.markdown("</div></div>", unsafe_allow_html=True)
 
             if not any_items:
                 st.markdown("""
                 <div class="finding-rail-empty">
-                    No structured findings yet. Ask the auditor for:
-                    “Summarize the biggest risks by category.”
+                    No findings match the current severity filter. Try enabling more severity levels.
                 </div>
                 """, unsafe_allow_html=True)
 
