@@ -7,7 +7,7 @@ from streamlit_pdf_viewer import pdf_viewer
 # --- 1. THE PLAYBOOK ---
 SYSTEM_PROMPT = """
 Disclosure Review Playbook
-(Include your full playbook text here inside these triple quotes)
+(Your full playbook text here)
 
 --- CITATION RULE ---
 For every finding, you MUST include the page number using this exact tag: :page[X]
@@ -20,12 +20,11 @@ st.set_page_config(page_title="TurboHome Auditor", page_icon="🏠", layout="wid
 # CSS for the "No-New-Tab" Inline Links and Suggestion Bubbles
 st.markdown("""
     <style>
-    /* Inline Page Links */
     div.stButton > button {
         border: none !important;
         padding: 0px 1px !important;
         background-color: transparent !important;
-        color: #007bff !important;
+        color: #2563eb !important;
         text-decoration: underline !important;
         font-size: inherit !important;
         display: inline !important;
@@ -33,9 +32,6 @@ st.markdown("""
         height: auto !important;
         vertical-align: baseline !important;
     }
-    div.stButton > button:hover { color: #0056b3 !important; }
-
-    /* Suggestion Bubbles Styling */
     div[data-testid="column"] .stButton > button[key^="sugg_"] {
         background-color: #ffffff !important;
         color: #2563eb !important;
@@ -43,13 +39,8 @@ st.markdown("""
         text-decoration: none !important;
         border-radius: 12px !important;
         padding: 8px 12px !important;
-        font-size: 0.9rem !important;
+        font-size: 0.85rem !important;
         font-weight: 500 !important;
-        transition: 0.3s;
-    }
-    div[data-testid="column"] .stButton > button[key^="sugg_"]:hover {
-        background-color: #2563eb !important;
-        color: white !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -60,10 +51,12 @@ if "messages" not in st.session_state:
 if "target_page" not in st.session_state:
     st.session_state.target_page = None 
 if "suggestions" not in st.session_state:
-    # Default initial suggestions
     st.session_state.suggestions = ["Highlight the biggest risks", "Check for unpermitted work", "Summarize NHD hazards"]
 
 # --- 4. API SETUP ---
+# MODEL_NAME is set here for easy updating
+MODEL_NAME = "gemini-3-flash-preview" 
+
 api_key = st.secrets.get("GOOGLE_API_KEY")
 client = genai.Client(api_key=api_key)
 
@@ -93,7 +86,6 @@ if uploaded_file:
         with chat_container:
             for m_idx, msg in enumerate(st.session_state.messages):
                 with st.chat_message(msg["role"]):
-                    # Handle text + inline links
                     parts = re.split(r'(:page\[\d+\])', msg["content"])
                     for p_idx, part in enumerate(parts):
                         match = re.match(r':page\[(\d+)\]', part)
@@ -105,9 +97,8 @@ if uploaded_file:
                         else:
                             if part.strip(): st.markdown(part)
 
-        # RENDER DYNAMIC SUGGESTION BUBBLES
+        # SUGGESTIONS
         st.write("---")
-        st.caption("Suggested follow-ups:")
         s_cols = st.columns(len(st.session_state.suggestions))
         for idx, suggestion in enumerate(st.session_state.suggestions):
             if s_cols[idx].button(suggestion, key=f"sugg_{idx}"):
@@ -124,9 +115,9 @@ if uploaded_file:
             with st.chat_message("assistant"):
                 with st.spinner("Analyzing..."):
                     try:
-                        # CALL 1: The Main Audit
+                        # PRIMARY AUDIT
                         response = client.models.generate_content(
-                            model="gemini-3-flash",
+                            model=MODEL_NAME,
                             config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, temperature=0.0),
                             contents=[
                                 types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
@@ -137,21 +128,11 @@ if uploaded_file:
                         )
                         st.session_state.messages.append({"role": "assistant", "content": response.text})
 
-                        # CALL 2: The Contextual Suggestions
-                        # We ask Gemini to look at the last interaction and suggest what a smart buyer would ask next.
-                        s_prompt = f"""
-                        Based on this finding: "{response.text}", 
-                        what are 3 logical, short follow-up questions (4-6 words each) 
-                        a homebuyer should ask? 
-                        Output ONLY the questions separated by the | character. 
-                        Example: Question 1 | Question 2 | Question 3
-                        """
-                        sugg_response = client.models.generate_content(model="gemini-3-flash", contents=[s_prompt])
-                        
-                        # Update session state with new suggestions
-                        new_suggs = sugg_response.text.strip().split('|')
-                        st.session_state.suggestions = [s.strip() for s in new_suggs][:3]
+                        # CONTEXTUAL SUGGESTIONS
+                        s_prompt = f"Based on: '{response.text}', suggest 3 short follow-up questions (3-5 words) for a buyer. Output ONLY the questions separated by |."
+                        sugg_res = client.models.generate_content(model=MODEL_NAME, contents=[s_prompt])
+                        st.session_state.suggestions = [s.strip() for s in sugg_res.text.split('|')][:3]
                         
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error: {e}")
+                        st.error(f"Audit Error: {e}")
