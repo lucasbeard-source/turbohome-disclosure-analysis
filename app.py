@@ -633,7 +633,7 @@ else:
 # 10. AI ENGINE
 # =========================================================
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-    MODEL_NAME = "gemini-2.0-flash"
+    MODEL_NAME = "gemini-2.5-flash-preview-04-17"
     api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
     if not api_key:
