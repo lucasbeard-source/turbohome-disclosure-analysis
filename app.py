@@ -151,7 +151,7 @@ with col_chat:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 6. SUMMARY TABLE (THE RAIL)
+# 6. SUMMARY TABLE (FIXED)
 # =========================================================
 st.markdown('<div class="th-card">', unsafe_allow_html=True)
 st.markdown('<div class="th-card-title">📊 Summary Table</div>', unsafe_allow_html=True)
@@ -169,7 +169,6 @@ if last_assistant:
             c1.markdown(f'<span class="sev-badge {sev_class}">{r["sev"].upper()}</span>', unsafe_allow_html=True)
             c2.write(f"**{r['name']}**")
             
-            # THE HYPERLINK CITATION (STREMLIT BUTTON STYLED AS LINK)
             if c3.button(r['txt'], key=f"link_{i}"):
                 if r['doc'] in st.session_state.pdf_library:
                     st.session_state.viewing_doc = r['doc']
@@ -177,8 +176,16 @@ if last_assistant:
                     st.rerun()
                 else: st.error("Citing missing document.")
             
-            c4.write(f"${r['min']:,} - ${r['max']:,}")
-    else: st.caption("No structured data found in last response.")
+            # --- FIX: SANITIZE NUMBERS BEFORE FORMATTING ---
+            try:
+                # Strip commas/dollar signs and convert to int for clean formatting
+                clean_min = int(re.sub(r'[^\d]', '', str(r['min'])))
+                clean_max = int(re.sub(r'[^\d]', '', str(r['max'])))
+                c4.write(f"${clean_min:,} - ${clean_max:,}")
+            except:
+                # Fallback: Just show the raw string if parsing fails
+                c4.write(f"${r['min']} - ${r['max']}")
+    else: st.caption("No structured data found.")
 else: st.caption("Audit results will appear here.")
 st.markdown('</div>', unsafe_allow_html=True)
 
