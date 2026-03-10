@@ -30,21 +30,39 @@ st.markdown("""
     .th-header { background: #0f172a; color: white; padding: 12px 24px; border-radius: 12px; margin-bottom: 20px; }
     .th-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; }
     
+    /* Standard Suggestion Bubbles */
+    div[data-testid="column"] .stButton > button[key^="sugg_"] {
+        background: #f1f5f9 !important; border: 1px solid #e2e8f0 !important; border-radius: 8px !important;
+        font-size: 11px !important; padding: 6px 10px !important; width: 100% !important; color: #1e293b !important;
+    }
+
+    /* ORANGE PRIORITY BUTTON */
+    div.stButton > button[key="priority_btn"] {
+        background-color: #f97316 !important;
+        color: white !important;
+        font-weight: 800 !important;
+        border-radius: 12px !important;
+        padding: 15px 25px !important;
+        border: none !important;
+        width: 100% !important;
+        font-size: 14px !important;
+        box-shadow: 0 4px 14px 0 rgba(249, 115, 22, 0.39) !important;
+    }
+
+    /* Jump-Links */
     div.stButton > button[key^="link_"] {
         color: #2563eb !important; text-decoration: underline !important; font-weight: 700 !important;
         border: none !important; background: none !important; padding: 0 !important; text-align: left !important;
-        font-size: 13px !important; line-height: 1.4 !important;
     }
 
     .sev-badge { padding: 4px 10px; border-radius: 999px; font-weight: 800; font-size: 10px; }
     .sev-high { background: #fee2e2; color: #b91c1c; }
     .sev-medium { background: #fef3c7; color: #b45309; }
-    .sev-low { background: #f1f5f9; color: #475569; }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 3. SESSION STATE & HELPERS
+# 3. SESSION STATE
 # =========================================================
 if "messages" not in st.session_state: st.session_state.messages = []
 if "pdf_library" not in st.session_state: st.session_state.pdf_library = {} 
@@ -52,8 +70,7 @@ if "target_page" not in st.session_state: st.session_state.target_page = None
 if "viewing_doc" not in st.session_state: st.session_state.viewing_doc = None
 if "summary_table" not in st.session_state: st.session_state.summary_table = []
 if "suggestions" not in st.session_state: 
-    # Hard-coded priority question + 2 placeholders
-    st.session_state.suggestions = ["List top issues by priority", "Learn about wiring hazards", "Explain NHD hazards"]
+    st.session_state.suggestions = ["List top issues by priority", "Learn about wiring risks", "Explain foundation hazards"]
 
 def find_best_doc_match(ai_doc_name):
     if not ai_doc_name: return None
@@ -61,11 +78,6 @@ def find_best_doc_match(ai_doc_name):
     for real_name in uploaded_files:
         if ai_doc_name.lower() in real_name.lower() or real_name.lower() in ai_doc_name.lower():
             return real_name
-    digits = re.findall(r'\d+', ai_doc_name)
-    if digits:
-        for real_name in uploaded_files:
-            if any(num in real_name for num in digits):
-                return real_name
     return None
 
 def parse_and_store_data(text):
@@ -80,18 +92,15 @@ def parse_and_store_data(text):
         st.session_state.summary_table = new_rows
 
 # =========================================================
-# 4. TOP UI & SIDEBAR
+# 4. TOP UI
 # =========================================================
 st.markdown('<div class="th-header"><strong>TurboHome Disclosure Analysis</strong></div>', unsafe_allow_html=True)
 
 with st.sidebar:
-    st.title("📂 Files")
     files = st.file_uploader("Upload Disclosure Packet", type=["pdf"], accept_multiple_files=True)
     if files:
         for f in files:
-            if f.name not in st.session_state.pdf_library: 
-                st.session_state.pdf_library[f.name] = f.read()
-                st.session_state.summary_table = []
+            if f.name not in st.session_state.pdf_library: st.session_state.pdf_library[f.name] = f.read()
         if not st.session_state.viewing_doc and st.session_state.pdf_library:
             st.session_state.viewing_doc = list(st.session_state.pdf_library.keys())[0]
 
@@ -107,7 +116,7 @@ with col_view:
     st.markdown('<div class="th-card">', unsafe_allow_html=True)
     docs = list(st.session_state.pdf_library.keys())
     idx = docs.index(st.session_state.viewing_doc) if st.session_state.viewing_doc in docs else 0
-    st.session_state.viewing_doc = st.selectbox("Current Doc", docs, index=idx, label_visibility="collapsed")
+    st.session_state.viewing_doc = st.selectbox("Doc", docs, index=idx, label_visibility="collapsed")
     
     if st.session_state.target_page:
         try:
@@ -122,29 +131,37 @@ with col_view:
 with col_chat:
     st.markdown('<div class="th-card">', unsafe_allow_html=True)
     st.markdown("<strong>💬 TurboHome Analysis Chat</strong>", unsafe_allow_html=True)
-    chat_box = st.container(height=450)
+    chat_box = st.container(height=420)
     with chat_box:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]):
                 st.markdown(re.sub(r"DATA_START.*?DATA_END", "", m["content"], flags=re.DOTALL))
 
-    s_cols = st.columns(len(st.session_state.suggestions))
-    for i, sugg in enumerate(st.session_state.suggestions):
-        if s_cols[i].button(sugg, key=f"sugg_{i}"):
-            st.session_state.messages.append({"role": "user", "content": sugg})
+    # --- THE SUGGESTION LOGIC FIX ---
+    if not st.session_state.messages:
+        # Step 1: Initial State - Only show Orange Button
+        if st.button("List top issues by priority", key="priority_btn"):
+            st.session_state.messages.append({"role": "user", "content": "List top issues by priority"})
             st.rerun()
+    else:
+        # Step 2: Normal 3x Suggestions after first interaction
+        st.write("---")
+        s_cols = st.columns(len(st.session_state.suggestions))
+        for i, sugg in enumerate(st.session_state.suggestions):
+            if s_cols[i].button(sugg, key=f"sugg_{i}"):
+                st.session_state.messages.append({"role": "user", "content": sugg})
+                st.rerun()
 
-    if prompt := st.chat_input("Ask about risks or concepts..."):
+    if prompt := st.chat_input("Ask about risks..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 6. SUMMARY TABLE (PERSISTENT MEMORY)
+# 6. SUMMARY TABLE (PERSISTENT)
 # =========================================================
 st.markdown('<div class="th-card">', unsafe_allow_html=True)
 st.markdown("<strong>📊 Summary Table</strong>", unsafe_allow_html=True)
-
 if st.session_state.summary_table:
     rows = st.session_state.summary_table
     c1, c2, c3, c4 = st.columns([0.4, 1, 2, 0.6])
@@ -154,16 +171,16 @@ if st.session_state.summary_table:
         c1.markdown(f'<span class="sev-badge sev-{r["sev"].lower()}">{r["sev"].upper()}</span>', unsafe_allow_html=True)
         c2.write(f"**{r['name']}**")
         if c3.button(r['txt'], key=f"link_{i}"):
-            matched_name = find_best_doc_match(r['doc'])
-            if matched_name:
-                st.session_state.viewing_doc, st.session_state.target_page = matched_name, r['pg']
+            match = find_best_doc_match(r['doc'])
+            if match:
+                st.session_state.viewing_doc, st.session_state.target_page = match, r['pg']
                 st.rerun()
         try:
             min_c, max_c = int(re.sub(r'[^\d]', '', str(r['min']))), int(re.sub(r'[^\d]', '', str(r['max'])))
             c4.markdown(f"**${min_c:,} - {max_c:,}**")
         except: c4.write(f"{r['min']} - {r['max']}")
 else:
-    st.info("No audit data yet. Use 'List top issues by priority' to begin.")
+    st.info("No audit data. Click the orange button above to begin.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
@@ -183,13 +200,10 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             )
             st.session_state.messages.append({"role": "assistant", "content": res.text})
             parse_and_store_data(res.text)
-
-            # EDUCATIONAL SHADOW CALL
-            ed_prompt = f"Based on: '{res.text}', suggest 2 EDUCATIONAL follow-ups (no actions, under 7 words). Focus on learning. Format: Q1 | Q2"
-            s_res = client.models.generate_content(model=MODEL_NAME, contents=[ed_prompt])
             
-            # PINNED QUESTION + 2 DYNAMIC EDUCATIONAL QUESTIONS
-            dynamic_qs = [s.strip() for s in s_res.text.split('|')][:2]
-            st.session_state.suggestions = ["List top issues by priority"] + dynamic_qs
+            # Update suggestions for Step 2
+            ed_prompt = f"Based on: '{res.text}', suggest 3 EDUCATIONAL follow-ups (under 7 words). Format: Q1 | Q2 | Q3"
+            s_res = client.models.generate_content(model=MODEL_NAME, contents=[ed_prompt])
+            st.session_state.suggestions = [s.strip() for s in s_res.text.split('|')][:3]
             st.rerun()
         except Exception as e: st.error(f"Error: {e}")
