@@ -8,38 +8,41 @@ from google.genai import types
 from streamlit_pdf_viewer import pdf_viewer
 
 # =========================================================
-# 1. CORE CONFIG & CONTEXTUAL PLAYBOOK
+# 1. CORE CONFIG & LOCATION-AWARE PLAYBOOK
 # =========================================================
 MODEL_NAME = "gemini-3-flash-preview"
 
 SYSTEM_PROMPT = """
 TurboHome Disclosure Analysis Playbook
-You are a professional real estate auditor specializing in the Bay Area / California market ($1.5M+ price points).
+You are a professional real estate auditor. Your primary directive is to identify the property address in the documents and adjust your analysis accordingly.
 
---- CONTEXTUAL RISK ASSESSMENT ---
-- Evaluate repair costs relative to the property value. For a $1.5M home, a $20k repair is often 'Standard Maintenance' and should be framed as such, not as a dealbreaker.
-- Distinguish between 'Urgent' (Safety/Insurance/Structural) and 'Non-Urgent' (End-of-life/Cosmetic).
+--- LOCATION-BASED CALIBRATION ---
+1. IDENTIFY ADDRESS: Find the property address.
+2. REGIONAL CONTEXT:
+   - Bay Area / LA ($1.5M+): A $20k repair is standard maintenance/minor. Focus on major systemic issues.
+   - Houston ($400k - $800k): A $20k repair is a significant 2.5% - 5% of property value. Flag it as a major negotiation point.
+3. COST ESTIMATES: Use local labor rates (e.g., California vs. Texas construction costs).
+
+--- URGENCY & SAFETY ---
+- Immediate: Safety hazards (Knob & Tube), Insurance blockers, Active leaks.
+- Planned: End-of-life items (15-year-old roof) that are functional but need budget.
 
 --- DATA BLOCK RULE ---
-Include an 'Urgency' field. Format:
-[Severity] | [Urgency] | [Issue Name] | [Short Citation Text] | [Doc Name] | [Page X] | [Min Cost $] | [Max Cost $]
-
-Urgency levels: Immediate (Safety/Insurance), Planned (1-2 years), Monitor (3+ years).
-
---- TONE ---
-Sharp, experienced, and grounded. Don't be an alarmist. If a $15k roof is the only issue on a $2M house, tell the buyer it's a 'Clean Report.'
+Format: [Severity] | [Urgency] | [Issue Name] | [Short Citation] | [Doc Name] | [Page X] | [Min $] | [Max $]
+Severities: High, Medium, Low.
+Urgency: Immediate, Planned, Monitor.
 """
 
 # =========================================================
-# 2. SESSION STATE & HELPERS
+# 2. SESSION STATE & PERSISTENCE
 # =========================================================
 if "messages" not in st.session_state: st.session_state.messages = []
 if "pdf_library" not in st.session_state: st.session_state.pdf_library = {} 
-if "summary_table" not in st.session_state: st.session_state.summary_table = []
+if "summary_table" not in st.session_state: st.session_state.summary_table = [] 
 if "viewing_doc" not in st.session_state: st.session_state.viewing_doc = None
 if "target_page" not in st.session_state: st.session_state.target_page = None
 if "suggestions" not in st.session_state: 
-    st.session_state.suggestions = ["List top issues by priority", "Learn about wiring risks", "Explain foundation hazards"]
+    st.session_state.suggestions = ["List top issues by priority", "Learn about wiring risks", "Explain local market risks"]
 
 def find_best_doc_match(ai_doc_name):
     if not ai_doc_name: return None
@@ -56,7 +59,7 @@ def parse_and_store_data(text):
     new_rows = []
     for l in lines:
         p = [i.strip() for i in l.split('|')]
-        if len(p) >= 8: # Updated for Urgency column
+        if len(p) >= 8:
             try:
                 new_rows.append({
                     "sev": p[0].strip('[]'), "urg": p[1], "name": p[2], "txt": p[3], "doc": p[4], "pg": p[5],
@@ -82,10 +85,11 @@ html, body, .stApp { font-family: 'DM Sans', sans-serif; background: #f8f7f4; }
 .th-header { background: #0f1923; color: white; padding: 18px 24px; border-radius: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 .th-brand { font-family: 'DM Serif Display', serif; font-size: 24px; }
 .th-card { background: white; border: 1px solid #e8e4dc; border-radius: 18px; padding: 24px; margin-bottom: 1.25rem; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
-.urgency-tag { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; border: 1px solid; }
+.urgency-tag { padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; border: 1px solid; }
 .urg-immediate { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
 .urg-planned { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
 div.stButton > button[key^="link_"] { color: #2563eb !important; text-decoration: underline !important; font-weight: 700 !important; border: none !important; background: none !important; padding: 0 !important; text-align: left !important; }
+div.stButton > button[key="priority_btn"] { background: #f97316 !important; color: white !important; font-weight: 700 !important; border-radius: 12px !important; border: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -105,7 +109,7 @@ if not st.session_state.pdf_library:
     st.stop()
 
 # =========================================================
-# 4. COCKPIT
+# 4. THE COCKPIT
 # =========================================================
 col_view, col_chat = st.columns([1.2, 1], gap="medium")
 
@@ -126,7 +130,7 @@ with col_view:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_chat:
-    st.markdown('<div class="th-card"><strong>💬 TurboHome Analysis Chat</strong>', unsafe_allow_html=True)
+    st.markdown('<div class="th-card"><strong>💬 Analysis Chat</strong>', unsafe_allow_html=True)
     chat_box = st.container(height=450)
     with chat_box:
         for m in st.session_state.messages:
@@ -134,21 +138,24 @@ with col_chat:
                 st.markdown(clean_chat_text(m["content"]))
 
     if not st.session_state.messages:
-        if st.button("List top issues by priority", key="priority_btn", type="primary", use_container_width=True):
-            st.session_state.messages.append({"role": "user", "content": "List top issues by priority. Provide contextual Bay Area risk levels and urgency for each."})
+        # STEP 1: Orange Priority Button Only
+        if st.button("List top issues by priority", key="priority_btn", use_container_width=True):
+            st.session_state.messages.append({"role": "user", "content": "Analyze the property and list issues by priority, calibrating risks to the local property market."})
             st.rerun()
     else:
+        # STEP 2: 3x Normal Suggestions
+        st.write("---")
         s_cols = st.columns(len(st.session_state.suggestions))
         for i, sugg in enumerate(st.session_state.suggestions):
             if s_cols[i].button(sugg, key=f"sugg_{i}"):
                 st.session_state.messages.append({"role": "user", "content": sugg}); st.rerun()
 
-    if prompt := st.chat_input("Ask about risks..."):
+    if prompt := st.chat_input("Ask about location risks..."):
         st.session_state.messages.append({"role": "user", "content": prompt}); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 5. SUMMARY TABLE & SCORE
+# 5. SUMMARY TABLE (PERSISTENT MEMORY)
 # =========================================================
 if st.session_state.summary_table:
     rows = st.session_state.summary_table
@@ -156,11 +163,11 @@ if st.session_state.summary_table:
     
     
 
-    st.markdown(f'<div class="th-card" style="background:#fff7ed; border:1px solid #fed7aa;"><div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-family:\'DM Serif Display\',serif; font-size:42px; color:#ea580c;">{len(rows)}</div><div style="font-size:12px; font-weight:700; color:#92400e;">IDENTIFIED ISSUES</div></div><div style="text-align:right;"><div style="font-size:11px; color:#94a3b8;">EST. TOTAL LIABILITY</div><div style="font-family:\'DM Serif Display\',serif; font-size:32px; color:#0f172a;">${t_min:,} – ${t_max:,}</div><div style="font-size:10px; color:#94a3b8;">*Standard maintenance for $1.5M+ property</div></div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="th-card" style="background:#fff7ed; border:1px solid #fed7aa;"><div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-family:\'DM Serif Display\',serif; font-size:42px; color:#ea580c;">{len(rows)}</div><div style="font-size:12px; font-weight:700; color:#92400e;">AUDITED RISKS</div></div><div style="text-align:right;"><div style="font-size:11px; color:#94a3b8;">TOTAL MARKET-ADJUSTED LIABILITY</div><div style="font-family:\'DM Serif Display\',serif; font-size:32px; color:#0f172a;">${t_min:,} – ${t_max:,}</div></div></div></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="th-card"><strong>📊 Summary Table</strong>', unsafe_allow_html=True)
     c1, c2, c3, c4, c5 = st.columns([0.4, 0.6, 1, 2, 0.6])
-    c1.caption("**SEV**"); c2.caption("**URGENCY**"); c3.caption("**ISSUE**"); c4.caption("**CITATION JUMP-LINK**"); c5.caption("**COST**")
+    c1.caption("**SEV**"); c2.caption("**URGENCY**"); c3.caption("**ISSUE**"); c4.caption("**JUMP-LINK**"); c5.caption("**COST**")
     for i, r in enumerate(rows):
         c1, c2, c3, c4, c5 = st.columns([0.4, 0.6, 1, 2, 0.6])
         c1.write(f"**{r['sev']}**")
@@ -180,7 +187,7 @@ if st.session_state.summary_table:
 # =========================================================
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
     client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
-    with st.spinner("Analyzing risk context..."):
+    with st.spinner("Analyzing location and context..."):
         try:
             pdf_parts = [types.Part.from_bytes(data=b, mime_type="application/pdf") for b in st.session_state.pdf_library.values()]
             history = [types.Content(role="model" if m["role"] == "assistant" else "user", parts=[types.Part.from_text(text=m["content"])]) for m in st.session_state.messages[-10:]]
