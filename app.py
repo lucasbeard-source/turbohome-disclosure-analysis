@@ -13,10 +13,9 @@ TurboHome Disclosure Analysis Playbook
 You are a professional real estate auditor. Analyze all documents for material risks.
 
 --- DATA BLOCK RULE ---
-End every response with a 'DATA_START' and 'DATA_END' block.
+ONLY include a 'DATA_START' block if you are identifying NEW or UPDATED risks.
 Format: [Severity] | [Issue Name] | [Text to Click] | [Doc Name] | [Page X] | [Min Cost] | [Max Cost]
 Severities: High, Medium, Low. 
-IMPORTANT: Use the actual filename for [Doc Name].
 """
 
 # =========================================================
@@ -31,7 +30,6 @@ st.markdown("""
     .th-header { background: #0f172a; color: white; padding: 12px 24px; border-radius: 12px; margin-bottom: 20px; }
     .th-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; }
     
-    /* The Hyperlink Citation Button Styling */
     div.stButton > button[key^="link_"] {
         color: #2563eb !important; text-decoration: underline !important; font-weight: 700 !important;
         border: none !important; background: none !important; padding: 0 !important; text-align: left !important;
@@ -46,26 +44,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 3. SESSION STATE & SUPER-FUZZY HELPER
+# 3. SESSION STATE & HELPERS
 # =========================================================
 if "messages" not in st.session_state: st.session_state.messages = []
 if "pdf_library" not in st.session_state: st.session_state.pdf_library = {} 
 if "target_page" not in st.session_state: st.session_state.target_page = None
 if "viewing_doc" not in st.session_state: st.session_state.viewing_doc = None
+if "summary_table" not in st.session_state: st.session_state.summary_table = []
 if "suggestions" not in st.session_state: 
-    st.session_state.suggestions = ["Explain foundation risks", "Learn about wiring hazards", "NHD implications"]
+    # Hard-coded priority question + 2 placeholders
+    st.session_state.suggestions = ["List top issues by priority", "Learn about wiring hazards", "Explain NHD hazards"]
 
 def find_best_doc_match(ai_doc_name):
-    """Fuzzy searches uploaded filenames using the AI's messy reference."""
     if not ai_doc_name: return None
     uploaded_files = list(st.session_state.pdf_library.keys())
-    
-    # 1. Exact or partial string match
     for real_name in uploaded_files:
         if ai_doc_name.lower() in real_name.lower() or real_name.lower() in ai_doc_name.lower():
             return real_name
-            
-    # 2. Match by shared numbers (e.g. 21130126)
     digits = re.findall(r'\d+', ai_doc_name)
     if digits:
         for real_name in uploaded_files:
@@ -73,20 +68,19 @@ def find_best_doc_match(ai_doc_name):
                 return real_name
     return None
 
-def parse_data_block(text):
+def parse_and_store_data(text):
     match = re.search(r"DATA_START(.*?)DATA_END", text, re.DOTALL)
     if match:
         lines = [l.strip() for l in match.group(1).strip().split('\n') if '|' in l]
-        parsed = []
+        new_rows = []
         for l in lines:
             p = [i.strip() for i in l.split('|')]
             if len(p) >= 6:
-                parsed.append({"sev": p[0], "name": p[1], "txt": p[2], "doc": p[3], "pg": p[4], "min": p[5], "max": p[6] if len(p)>6 else p[5]})
-        return parsed
-    return []
+                new_rows.append({"sev": p[0], "name": p[1], "txt": p[2], "doc": p[3], "pg": p[4], "min": p[5], "max": p[6] if len(p)>6 else p[5]})
+        st.session_state.summary_table = new_rows
 
 # =========================================================
-# 4. SIDEBAR & HEADER
+# 4. TOP UI & SIDEBAR
 # =========================================================
 st.markdown('<div class="th-header"><strong>TurboHome Disclosure Analysis</strong></div>', unsafe_allow_html=True)
 
@@ -95,12 +89,13 @@ with st.sidebar:
     files = st.file_uploader("Upload Disclosure Packet", type=["pdf"], accept_multiple_files=True)
     if files:
         for f in files:
-            if f.name not in st.session_state.pdf_library: st.session_state.pdf_library[f.name] = f.read()
+            if f.name not in st.session_state.pdf_library: 
+                st.session_state.pdf_library[f.name] = f.read()
+                st.session_state.summary_table = []
         if not st.session_state.viewing_doc and st.session_state.pdf_library:
             st.session_state.viewing_doc = list(st.session_state.pdf_library.keys())[0]
 
 if not st.session_state.pdf_library:
-    st.info("Upload documents in the sidebar to begin.")
     st.stop()
 
 # =========================================================
@@ -145,42 +140,34 @@ with col_chat:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 6. SUMMARY TABLE (SUPER-FUZZY CITATIONS)
+# 6. SUMMARY TABLE (PERSISTENT MEMORY)
 # =========================================================
 st.markdown('<div class="th-card">', unsafe_allow_html=True)
 st.markdown("<strong>📊 Summary Table</strong>", unsafe_allow_html=True)
 
-last_assistant = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "assistant"), "")
-if last_assistant:
-    rows = parse_data_block(last_assistant)
-    if rows:
+if st.session_state.summary_table:
+    rows = st.session_state.summary_table
+    c1, c2, c3, c4 = st.columns([0.4, 1, 2, 0.6])
+    c1.caption("**SEVERITY**"); c2.caption("**ISSUE**"); c3.caption("**HYPERLINK CITATION**"); c4.caption("**EST COST**")
+    for i, r in enumerate(rows):
         c1, c2, c3, c4 = st.columns([0.4, 1, 2, 0.6])
-        c1.caption("**SEVERITY**"); c2.caption("**ISSUE**"); c3.caption("**HYPERLINK CITATION**"); c4.caption("**EST COST**")
-        for i, r in enumerate(rows):
-            c1, c2, c3, c4 = st.columns([0.4, 1, 2, 0.6])
-            c1.markdown(f'<span class="sev-badge sev-{r["sev"].lower()}">{r["sev"].upper()}</span>', unsafe_allow_html=True)
-            c2.write(f"**{r['name']}**")
-            
-            # --- THE CITATION FIX ---
-            if c3.button(r['txt'], key=f"link_{i}"):
-                matched_name = find_best_doc_match(r['doc'])
-                if matched_name:
-                    st.session_state.viewing_doc = matched_name
-                    st.session_state.target_page = int(re.sub(r'[^\d]', '', str(r['pg'])))
-                    st.rerun()
-                else: st.error(f"Cannot find: {r['doc']}")
-            
-            # --- COST FIX ---
-            try:
-                min_c = int(re.sub(r'[^\d]', '', str(r['min'])))
-                max_c = int(re.sub(r'[^\d]', '', str(r['max'])))
-                c4.markdown(f"**${min_c:,} - {max_c:,}**")
-            except: c4.write(f"{r['min']} - {r['max']}")
-    else: st.caption("No data found.")
+        c1.markdown(f'<span class="sev-badge sev-{r["sev"].lower()}">{r["sev"].upper()}</span>', unsafe_allow_html=True)
+        c2.write(f"**{r['name']}**")
+        if c3.button(r['txt'], key=f"link_{i}"):
+            matched_name = find_best_doc_match(r['doc'])
+            if matched_name:
+                st.session_state.viewing_doc, st.session_state.target_page = matched_name, r['pg']
+                st.rerun()
+        try:
+            min_c, max_c = int(re.sub(r'[^\d]', '', str(r['min']))), int(re.sub(r'[^\d]', '', str(r['max'])))
+            c4.markdown(f"**${min_c:,} - {max_c:,}**")
+        except: c4.write(f"{r['min']} - {r['max']}")
+else:
+    st.info("No audit data yet. Use 'List top issues by priority' to begin.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 7. AI ENGINE (EDUCATIONAL SHADOW CALL)
+# 7. AI ENGINE
 # =========================================================
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
     MODEL_NAME = "gemini-3-flash-preview"
@@ -195,10 +182,14 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 contents=pdf_parts + history
             )
             st.session_state.messages.append({"role": "assistant", "content": res.text})
+            parse_and_store_data(res.text)
 
             # EDUCATIONAL SHADOW CALL
-            ed_prompt = f"Based on: '{res.text}', suggest 3 EDUCATIONAL follow-ups (no actions, under 7 words). Focus on learning about the risk. Format: Question 1 | Question 2 | Question 3"
+            ed_prompt = f"Based on: '{res.text}', suggest 2 EDUCATIONAL follow-ups (no actions, under 7 words). Focus on learning. Format: Q1 | Q2"
             s_res = client.models.generate_content(model=MODEL_NAME, contents=[ed_prompt])
-            st.session_state.suggestions = [s.strip() for s in s_res.text.split('|')][:3]
+            
+            # PINNED QUESTION + 2 DYNAMIC EDUCATIONAL QUESTIONS
+            dynamic_qs = [s.strip() for s in s_res.text.split('|')][:2]
+            st.session_state.suggestions = ["List top issues by priority"] + dynamic_qs
             st.rerun()
         except Exception as e: st.error(f"Error: {e}")
